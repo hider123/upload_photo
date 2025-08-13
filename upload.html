@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上傳圖片到 Firebase Storage - Family-Time-Capsule</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #appContainer {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 25px;
+            font-size: 2.2em;
+        }
+        input[type="file"] {
+            display: block;
+            margin: 20px auto;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background-color 0.3s ease;
+            margin-top: 15px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #uploadStatus {
+            margin-top: 25px;
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #555;
+            min-height: 25px; /* 確保高度穩定 */
+        }
+        #uploadedImage {
+            max-width: 100%;
+            height: auto;
+            margin-top: 30px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            display: none; /* 預設隱藏 */
+        }
+        .error {
+            color: #d32f2f; /* 紅色錯誤提示 */
+        }
+        .success {
+            color: #2e7d32; /* 綠色成功提示 */
+        }
+        .info {
+            color: #1976d2; /* 藍色資訊提示 */
+        }
+    </style>
+</head>
+<body>
+    <div id="appContainer">
+        <h1>📸 上傳家庭記憶到雲端 📸</h1>
+
+        <input type="file" id="imageFile" accept="image/*">
+        <button id="uploadButton">上傳圖片</button>
+
+        <p id="uploadStatus">請選擇一張圖片並點擊上傳。</p>
+
+        <img id="uploadedImage" src="" alt="已上傳的圖片">
+    </div>
+
+    <script type="module">
+        // 1. 引入 Firebase SDK 模組
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+        // 2. 你的 Firebase 專案配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyAoVd0MJy5TjwuEF8xPntGmyu3tpHEUuts",
+            authDomain: "family-time-capsule-ac438.firebaseapp.com",
+            projectId: "family-time-capsule-ac438",
+            storageBucket: "family-time-capsule-ac438.firebasestorage.app",
+            messagingSenderId: "717537356458",
+            appId: "1:717537356458:web:59caf3c60cd45d2529bed3"
+        };
+
+        // 3. 初始化 Firebase App
+        const app = initializeApp(firebaseConfig);
+        const storage = getStorage(app);
+
+        // 4. 取得 HTML 元素
+        const imageFileInput = document.getElementById('imageFile');
+        const uploadButton = document.getElementById('uploadButton');
+        const uploadStatusElement = document.getElementById('uploadStatus');
+        const uploadedImageElement = document.getElementById('uploadedImage');
+
+        // 5. 為上傳按鈕添加事件監聽器
+        uploadButton.addEventListener('click', async () => {
+            const file = imageFileInput.files[0];
+
+            if (!file) {
+                uploadStatusElement.textContent = '⛔ 請先選擇一個圖片檔案！';
+                uploadStatusElement.className = 'error';
+                return;
+            }
+
+            // --- 計時器開始 ---
+            const startTime = performance.now();
+
+            uploadStatusElement.textContent = '🚀 正在上傳圖片中，請稍候...';
+            uploadStatusElement.className = 'info';
+            uploadedImageElement.style.display = 'none';
+
+            try {
+                const timestamp = new Date().getTime();
+                const originalFileName = file.name;
+                const fileExtension = originalFileName.split('.').pop();
+                const uniqueFileName = `${timestamp}_${originalFileName.replace(/\.[^/.]+$/, "")}.${fileExtension}`;
+                
+                const storagePath = `images/${uniqueFileName}`;
+                const storageRef = ref(storage, storagePath);
+
+                // 上傳檔案
+                const snapshot = await uploadBytes(storageRef, file);
+                console.log('圖片上傳成功！檔案元資料:', snapshot);
+
+                // 取得下載 URL
+                const downloadURL = await getDownloadURL(snapshot.ref);
+                console.log('圖片下載網址：', downloadURL);
+
+                // --- 計時器停止 (成功) ---
+                const endTime = performance.now();
+                const duration = ((endTime - startTime) / 1000).toFixed(2); // 計算耗時秒數
+
+                uploadStatusElement.textContent = `✅ 圖片上傳成功！耗時 ${duration} 秒。`;
+                uploadStatusElement.className = 'success';
+
+                // 顯示上傳後的圖片
+                uploadedImageElement.src = downloadURL;
+                uploadedImageElement.alt = `已上傳的圖片：${uniqueFileName}`;
+                uploadedImageElement.style.display = 'block';
+
+            } catch (error) {
+                // --- 計時器停止 (失敗) ---
+                const endTime = performance.now();
+                const duration = ((endTime - startTime) / 1000).toFixed(2); // 計算耗時秒數
+
+                console.error("圖片上傳失敗：", error);
+                let errorMessage = `❌ 圖片上傳失敗：${error.message}`;
+                uploadStatusElement.className = 'error';
+
+                switch (error.code) {
+                    case 'storage/unauthorized':
+                        errorMessage += ' (沒有權限上傳，請檢查 Firebase Storage 的安全規則。)';
+                        break;
+                    case 'storage/canceled':
+                        errorMessage += ' (上傳被取消。)';
+                        break;
+                    case 'storage/object-not-found':
+                        errorMessage += ' (指定的儲存路徑不存在。)';
+                        break;
+                    default:
+                        errorMessage += ' (發生未知錯誤。)';
+                        break;
+                }
+                uploadStatusElement.textContent = `${errorMessage} (耗時 ${duration} 秒)`;
+            }
+        });
+    </script>
+</body>
+</html>
